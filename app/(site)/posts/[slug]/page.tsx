@@ -37,7 +37,7 @@ export default async function PostPage({
     supabase
       .from("posts")
       .select(
-        "id, title, content, image_path, created_at, user_id, profiles!posts_user_id_fkey(username, full_name, avatar_url), likes(count)",
+            "id, title, content, image_path, created_at, updated_at, user_id, profiles!posts_user_id_fkey(username, full_name, avatar_url), likes(count)",
       )
       .eq("slug", slug)
       .maybeSingle(),
