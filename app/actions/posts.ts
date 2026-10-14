@@ -6,6 +6,7 @@ import {
   IMAGE_BUCKET,
   fileExtension,
   randomSuffix,
+  MAX_POST_IMAGES,
   slugify,
   validateImage,
   type ActionState,
@@ -15,9 +16,9 @@ type Supabase = Awaited<ReturnType<typeof createClient>>;
 function readPostForm(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const content = String(formData.get("content") ?? "").trim();
-  const image = formData.get("image");
-  const file = image instanceof File && image.size > 0 ? image : null;
-  const fields = { title, content };
+  const categoryId = String(formData.get("category_id") ?? "").trim();
+  const images = formData.getAll("images").filter((item): item is File => item instanceof File && item.size > 0);
+  const fields = { title, content, category_id: categoryId };
 
   let error: string | null = null;
   if (!title) error = "Please give your post a title.";
@@ -26,9 +27,16 @@ function readPostForm(formData: FormData) {
   else if (!content) error = "Please write some content.";
   else if (content.length > 10000)
     error = "The content can be at most 10,000 characters.";
-  else if (file) error = validateImage(file);
+  else if (!categoryId) error = "Please choose a category.";
+  else if (images.length > MAX_POST_IMAGES) error = `Choose up to ${MAX_POST_IMAGES} images.`;
+  else {
+    for (const file of images) {
+      const issue = validateImage(file);
+      if (issue) { error = issue; break; }
+    }
+  }
 
-  return { title, content, file, fields, error };
+  return { title, content, categoryId, images, fields, error };
 }
 
 async function uploadImage(supabase: Supabase, userId: string, file: File) {
@@ -41,9 +49,23 @@ async function uploadImage(supabase: Supabase, userId: string, file: File) {
 
 async function removeImage(
   supabase: Supabase,
-  path: string | null | undefined,
+  ...paths: (string | null | undefined)[]
 ) {
-  if (path) await supabase.storage.from(IMAGE_BUCKET).remove([path]);
+  const existing = paths.filter((path): path is string => !!path);
+  if (existing.length) await supabase.storage.from(IMAGE_BUCKET).remove(existing);
+}
+
+async function uploadImages(supabase: Supabase, userId: string, files: File[]) {
+  const paths: string[] = [];
+  for (const file of files) {
+    const uploaded = await uploadImage(supabase, userId, file);
+    if (uploaded.error) {
+      await removeImage(supabase, ...paths);
+      return { paths: null, error: uploaded.error };
+    }
+    if (uploaded.path) paths.push(uploaded.path);
+  }
+  return { paths, error: null };
 }
 
 export async function createPost(
@@ -56,16 +78,12 @@ export async function createPost(
   } = await supabase.auth.getUser();
   if (!user) return { error: "You need to be logged in to create a post." };
 
-  const { title, content, file, fields, error } = readPostForm(formData);
+  const { title, content, categoryId, images, fields, error } = readPostForm(formData);
   if (error) return { error, fields };
 
-  let imagePath: string | null = null;
-  if (file) {
-    const upload = await uploadImage(supabase, user.id, file);
-    if (upload.error)
-      return { error: `Image upload failed: ${upload.error}`, fields };
-    imagePath = upload.path;
-  }
+  const upload = await uploadImages(supabase, user.id, images);
+  if (upload.error) return { error: `Image upload failed: ${upload.error}`, fields };
+  const imagePaths = upload.paths ?? [];
 
   let slug = "";
   let insertError: { code?: string; message: string } | null = null;
@@ -77,7 +95,8 @@ export async function createPost(
         title,
         content,
         slug,
-        image_path: imagePath,
+        image_paths: imagePaths,
+        category_id: categoryId,
         user_id: user.id,
       });
     insertError = err;
@@ -85,7 +104,7 @@ export async function createPost(
   }
 
   if (insertError) {
-    await removeImage(supabase, imagePath); // don't leave an orphaned upload
+    await removeImage(supabase, ...imagePaths); // don't leave orphaned uploads
     return {
       error: `Could not create the post: ${insertError.message}`,
       fields,
@@ -108,12 +127,12 @@ export async function updatePost(
   } = await supabase.auth.getUser();
   if (!user) return { error: "You need to be logged in to edit a post." };
 
-  const { title, content, file, fields, error } = readPostForm(formData);
+  const { title, content, categoryId, images, fields, error } = readPostForm(formData);
   if (error) return { error, fields };
 
   const { data: existing } = await supabase
     .from("posts")
-    .select("id, slug, image_path, user_id")
+    .select("id, slug, image_paths, user_id")
     .eq("id", postId)
     .maybeSingle();
   if (!existing) return { error: "This post no longer exists.", fields };
@@ -121,29 +140,28 @@ export async function updatePost(
     return { error: "You can only edit your own posts.", fields };
   }
 
-  let imagePath = existing.image_path;
-  let newUploadPath: string | null = null;
+  let imagePaths: string[] = existing.image_paths ?? [];
+  let newUploadPaths: string[] = [];
 
-  if (file) {
-    const upload = await uploadImage(supabase, user.id, file);
-    if (upload.error)
-      return { error: `Image upload failed: ${upload.error}`, fields };
-    newUploadPath = upload.path;
-    imagePath = upload.path;
-  } else if (formData.get("removeImage") === "on") {
-    imagePath = null;
+  if (images.length) {
+    const upload = await uploadImages(supabase, user.id, images);
+    if (upload.error) return { error: `Image upload failed: ${upload.error}`, fields };
+    newUploadPaths = upload.paths ?? [];
+    imagePaths = newUploadPaths;
+  } else if (formData.get("removeImages") === "on") {
+    imagePaths = [];
   }
 
   const { data: updated, error: updateError } = await supabase
     .from("posts")
-    .update({ title, content, image_path: imagePath })
+    .update({ title, content, image_paths: imagePaths, category_id: categoryId })
     .eq("id", postId)
     .eq("user_id", user.id)
     .select("id")
     .maybeSingle();
 
   if (updateError || !updated) {
-    await removeImage(supabase, newUploadPath);
+    await removeImage(supabase, ...newUploadPaths);
     return {
       error: `Could not save your changes: ${updateError?.message ?? "permission denied."}`,
       fields,
@@ -151,8 +169,9 @@ export async function updatePost(
   }
 
   // Old image is no longer referenced -> delete it from the bucket.
-  if (existing.image_path && existing.image_path !== imagePath) {
-    await removeImage(supabase, existing.image_path);
+  const staleImages = (existing.image_paths ?? []).filter((path: string) => !imagePaths.includes(path));
+  if (staleImages.length) {
+    await removeImage(supabase, ...staleImages);
   }
 
   revalidatePath("/");
@@ -170,7 +189,7 @@ export async function deletePost(postId: string): Promise<ActionState> {
 
   const { data: post } = await supabase
     .from("posts")
-    .select("id, slug, image_path")
+    .select("id, slug, image_paths")
     .eq("id", postId)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -183,7 +202,7 @@ export async function deletePost(postId: string): Promise<ActionState> {
     .eq("user_id", user.id);
   if (error) return { error: `Could not delete the post: ${error.message}` };
 
-  await removeImage(supabase, post.image_path);
+  await removeImage(supabase, ...(post.image_paths ?? []));
 
   revalidatePath("/");
   revalidatePath("/explore");

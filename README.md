@@ -1,0 +1,4 @@
+# ConnectSphere
+
+## Supabase setup
+

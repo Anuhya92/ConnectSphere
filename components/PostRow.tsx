@@ -5,7 +5,7 @@ import type { FeedPost } from "@/lib/queries";
 import { displayName, getImageUrl, timeAgo } from "@/lib/utils";
 
 export default function PostRow({ post }: { post: FeedPost }) {
-  const imageUrl = getImageUrl(post.image_path);
+  const imageUrl = getImageUrl(post.image_paths?.[0]);
   return (
     <Link
       href={`/posts/${post.slug}`}
@@ -31,6 +31,7 @@ export default function PostRow({ post }: { post: FeedPost }) {
       </div>
       <div className="min-w-0 flex-1">
         <h2 className="truncate text-base font-semibold group-hover:text-primary">{post.title}</h2>
+        {post.category && <p className="text-xs font-semibold text-primary">{post.category.name}</p>}
         <p className="mt-0.5 text-sm text-muted">
           by {displayName(post.profiles)}, {timeAgo(post.created_at)}
         </p>

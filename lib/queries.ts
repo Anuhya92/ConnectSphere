@@ -4,14 +4,16 @@ import type { ProfileLite } from "@/lib/utils";
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
 export const POST_SELECT =
-  "id, title, slug, content, image_path, created_at, user_id, profiles!posts_user_id_fkey(username, full_name, avatar_url), comments(count), likes(count)";
+  "id, title, slug, content, image_paths, created_at, user_id, category_id, category:categories(id, name, slug), profiles!posts_user_id_fkey(username, full_name, avatar_url), comments(count), likes(count)";
 
 export type FeedPost = {
   id: string;
   title: string;
   slug: string;
   content: string;
-  image_path: string | null;
+  image_paths: string[];
+  category_id: string;
+  category: { id: string; name: string; slug: string } | null;
   created_at: string;
   user_id: string;
   profiles: ProfileLite;

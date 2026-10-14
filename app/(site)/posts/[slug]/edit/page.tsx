@@ -17,12 +17,14 @@ export default async function EditPostPage({ params }: PageProps<"/posts/[slug]/
   const supabase = await createClient();
   const { data: post } = await supabase
     .from("posts")
-    .select("id, title, content, image_path, user_id")
+    .select("id, title, content, image_paths, category_id, user_id")
     .eq("slug", slug)
     .maybeSingle();
   if (!post) notFound();
 
   if (post.user_id !== viewer.user.id) redirect(`/posts/${slug}`);
+  const { data: categories, error: categoryError } = await supabase.from("categories").select("id, name").order("name");
+  if (categoryError) throw new Error(`Could not load categories: ${categoryError.message}`);
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -31,10 +33,12 @@ export default async function EditPostPage({ params }: PageProps<"/posts/[slug]/
         title="Edit Post"
         submitLabel="Update Post"
         cancelHref={`/posts/${slug}`}
+        categories={categories ?? []}
         post={{
           title: post.title,
           content: post.content,
-          imageUrl: getImageUrl(post.image_path),
+          imageUrls: (post.image_paths ?? []).map((path) => getImageUrl(path)).filter((url): url is string => !!url),
+          categoryId: post.category_id,
         }}
       />
     </div>

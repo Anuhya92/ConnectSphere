@@ -37,7 +37,7 @@ export default async function PostPage({
     supabase
       .from("posts")
       .select(
-            "id, title, content, image_path, created_at, updated_at, user_id, profiles!posts_user_id_fkey(username, full_name, avatar_url), likes(count)",
+            "id, title, content, image_paths, category_id, category:categories(id, name, slug), created_at, updated_at, user_id, profiles!posts_user_id_fkey(username, full_name, avatar_url), likes(count)",
       )
       .eq("slug", slug)
       .maybeSingle(),
@@ -49,7 +49,7 @@ export default async function PostPage({
 
   const user = viewer?.user;
   const isAuthor = user?.id === post.user_id;
-  const imageUrl = getImageUrl(post.image_path);
+  const imageUrls = (post.image_paths ?? []).map((path) => getImageUrl(path)).filter((url): url is string => !!url);
   const authorName = displayName(post.profiles);
 
   const [{ data: comments, error: commentsError }, liked] = await Promise.all([
@@ -129,6 +129,7 @@ export default async function PostPage({
         <h1 className="mt-4 text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
           {post.title}
         </h1>
+        {post.category && <Link href={`/categories/${post.category.slug}`} className="mt-2 inline-flex rounded-full bg-tint px-3 py-1 text-sm font-semibold text-primary">{post.category.name}</Link>}
         <p className="mt-1 text-xs text-muted">
           {minutes} min read ({words} words)
         </p>
@@ -136,16 +137,11 @@ export default async function PostPage({
           {post.content}
         </p>
 
-        {imageUrl && (
-          <div className="relative mt-4 aspect-video w-full overflow-hidden rounded-lg bg-tint">
-            <Image
-              src={imageUrl}
-              alt={post.title}
-              fill
-              priority
-              sizes="(max-width: 768px) 100vw, 768px"
-              className="object-cover"
-            />
+        {imageUrls.length > 0 && (
+          <div className={`mt-4 grid gap-3 ${imageUrls.length > 1 ? "sm:grid-cols-2" : "grid-cols-1"}`}>
+            {imageUrls.map((url, index) => <div key={url} className="relative aspect-video overflow-hidden rounded-lg bg-tint">
+              <Image src={url} alt={`${post.title} image ${index + 1}`} fill priority={index === 0} sizes="(max-width: 768px) 100vw, 768px" className="object-cover" />
+            </div>)}
           </div>
         )}
 

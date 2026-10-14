@@ -17,7 +17,7 @@ export default function PostCard({
   loggedIn: boolean;
 }) {
   const name = displayName(post.profiles);
-  const imageUrl = getImageUrl(post.image_path);
+  const imageUrl = getImageUrl(post.image_paths?.[0]);
   const comments = post.comments[0]?.count ?? 0;
   const likes = post.likes[0]?.count ?? 0;
 
@@ -39,6 +39,7 @@ export default function PostCard({
       </div>
 
       <Link href={`/posts/${post.slug}`} className="group mt-3 block">
+        {post.category && <span className="mb-1 inline-flex rounded-full bg-tint px-2 py-0.5 text-xs font-semibold text-primary">{post.category.name}</span>}
         <h2 className="text-base font-semibold group-hover:text-primary">{post.title}</h2>
         <p className="mt-1 line-clamp-3 text-sm text-muted">{post.content}</p>
         {imageUrl && (

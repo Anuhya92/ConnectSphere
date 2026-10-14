@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { POST_SELECT, type FeedPost } from "@/lib/queries";
 import PostRow from "@/components/PostRow";
+import Link from "next/link";
 import SearchBar from "@/components/SearchBar";
 
 export const metadata: Metadata = { title: "Explore" };
@@ -23,10 +24,12 @@ export default async function ExplorePage({ searchParams }: PageProps<"/explore"
 
   const { data, error } = await request;
   const posts = (data ?? []) as FeedPost[];
+  const { data: categories } = await supabase.from("categories").select("id, name, slug").order("name");
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
       <SearchBar query={query} />
+      {categories?.length ? <nav aria-label="Post categories" className="flex flex-wrap gap-2">{categories.map((category) => <Link key={category.id} className="btn-secondary btn-sm" href={`/categories/${category.slug}`}>{category.name}</Link>)}</nav> : null}
 
       <h1 className="text-xl font-semibold">
         {query ? `Search Results for “${query}”` : "Explore all posts"}

@@ -67,7 +67,8 @@ export type Database = {
           content: string
           created_at: string
           id: string
-          image_path: string | null
+          image_paths: string[]
+          category_id: string
           slug: string
           title: string
           updated_at: string
@@ -77,7 +78,8 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
-          image_path?: string | null
+          image_paths?: string[]
+          category_id: string
           slug: string
           title: string
           updated_at?: string
@@ -87,13 +89,21 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
-          image_path?: string | null
+          image_paths?: string[]
+          category_id?: string
           slug?: string
           title?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "posts_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "posts_user_id_fkey"
             columns: ["user_id"]
@@ -102,6 +112,12 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      categories: {
+        Row: { id: string; name: string; slug: string; created_at: string }
+        Insert: { id?: string; name: string; slug: string; created_at?: string }
+        Update: { id?: string; name?: string; slug?: string; created_at?: string }
+        Relationships: []
       }
       likes: {
         Row: {

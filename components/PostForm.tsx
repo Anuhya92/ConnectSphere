@@ -11,11 +11,12 @@ type Props = {
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
   title: string;
   submitLabel: string;
-  post?: { title: string; content: string; imageUrl: string | null };
+  categories: { id: string; name: string }[];
+  post?: { title: string; content: string; imageUrls: string[]; categoryId: string };
   cancelHref?: string;
 };
 
-export default function PostForm({ action, title, submitLabel, post, cancelHref }: Props) {
+export default function PostForm({ action, title, submitLabel, post, cancelHref, categories }: Props) {
   const [state, formAction] = useActionState(action, {} as ActionState);
 
   return (
@@ -38,6 +39,14 @@ export default function PostForm({ action, title, submitLabel, post, cancelHref 
       </div>
 
       <div>
+        <label htmlFor="category_id" className="label">Category</label>
+        <select id="category_id" name="category_id" required defaultValue={state.fields?.category_id ?? post?.categoryId ?? ""} className="input">
+          <option value="" disabled>Select a category</option>
+          {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+        </select>
+      </div>
+
+      <div>
         <label htmlFor="content" className="label">
           Content
         </label>
@@ -54,14 +63,15 @@ export default function PostForm({ action, title, submitLabel, post, cancelHref 
       </div>
 
       <div>
-        <span className="label">{post?.imageUrl ? "Current image" : "Add image"}</span>
-        <ImageDropzone name="image" currentUrl={post?.imageUrl} />
-        {post?.imageUrl && (
+        <span className="label">{post?.imageUrls.length ? "Post images" : "Add images"}</span>
+        <ImageDropzone name="images" currentUrls={post?.imageUrls} multiple />
+        {!!post?.imageUrls?.length && (
           <label className="mt-2 flex items-center gap-2 text-sm text-muted">
-            <input type="checkbox" name="removeImage" />
-            Remove the current image
+            <input type="checkbox" name="removeImages" />
+            Remove all current images
           </label>
         )}
+        <p className="mt-1 text-xs text-muted">Up to 5 images, 5 MB each. Selecting images replaces the current set.</p>
       </div>
 
       <FormMessage state={state} />

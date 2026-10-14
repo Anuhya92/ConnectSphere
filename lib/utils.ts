@@ -2,6 +2,7 @@ import { SUPABASE_URL } from "@/lib/supabase/env";
 
 export const IMAGE_BUCKET = "post-images";
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+export const MAX_POST_IMAGES = 5;
 export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 export type ActionState = {
