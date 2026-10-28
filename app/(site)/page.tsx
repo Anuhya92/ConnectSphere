@@ -100,7 +100,7 @@ export default async function Home() {
 
           <div className="relative mx-auto w-full max-w-md">
             <div className="overflow-hidden rounded-2xl shadow-xl ring-1 ring-line">
-              <MountainArt className="aspect-'4/3' w-full" />
+              <MountainArt className="block aspect-4/3 w-full" />
             </div>
             <span className="absolute -right-2 -top-3 rounded-full ring-4 ring-white">
               <Avatar name="Alex Carter" size={44} />
